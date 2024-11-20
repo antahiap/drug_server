@@ -18,7 +18,7 @@ except ImportError:
 
 def create_app(config=None):
     """Create and configure an instance of the Flask application."""
-    app = Flask(__name__)
+    app = Flask(__name__, static_folder='txgnn_data')
     CORS(app)
 
     # Update configs

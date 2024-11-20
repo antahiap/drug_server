@@ -10,7 +10,7 @@ import os
 import json
 
 from config import SERVER_ROOT
-from mykeys import get_keys
+#from mykeys import get_keys
 # %%
 from flask import current_app, g
 
@@ -51,8 +51,12 @@ class Neo4jApp:
         self.batch_size = 5000
         # self.data_path = 'https://drug-gnn-models.s3.us-east-2.amazonaws.com/collaboration_delivery/'
 
-        (uri, user, password, datapath, database) = get_keys(
-            server, password, user, datapath, database)
+        #(uri, user, password, datapath, database) = get_keys(
+        #   server, password, user, datapath, database)
+
+        (uri, user, password, datapath, database) = (
+            #'bolt://172.29.45.124:7687', 'neo4j', 'morpheus', './data', DATABASE)
+            'bolt://localhost:7687', 'neo4j', 'explr_gds', './data', database)
         self.data_path = datapath
         self.database = database
 
@@ -288,12 +292,11 @@ class Neo4jApp:
             # )
             query = (
                 'MATCH (node:disease { id: $id })'
-                'RETURN node.predictions'
+                'RETURN node, node.predictions ORDER BY node.predictions'
             )
             results = tx.run(query, id=disease_id)
 
             predicted_drugs = json.loads(results.data()[0]['node.predictions'])[:query_n]
-
             return predicted_drugs
 
         def commit_known_drug_query(tx, disease_id):
@@ -381,7 +384,7 @@ class Neo4jApp:
 
         query = (
             'UNWIND $nodes as root_node ',
-            'MATCH  (node: {node_type} {{ id: root_node.id }})<-[rel: {rel1}]-(neighbor) '.format(
+            'MATCH  (node: {node_type} {{ id: root_node.id }})<-[rel: `{rel1}`]-(neighbor) '.format(
                 node_type=node_type, rel1=rel1),
             # 'WHERE NOT (node)-[:Prediction]-(neighbor) '
             'WITH node, neighbor, rel '
@@ -393,7 +396,7 @@ class Neo4jApp:
             'WITH node, '
             'neighbor_and_rel[0] AS neighbor, '
             'neighbor_and_rel[1] AS rel '
-            'MATCH(neighbor)<-[rel2: {rel2}]-(neighbor2) '.format(rel2=rel2),
+            'MATCH(neighbor)<-[rel2: `{rel2}`]-(neighbor2) '.format(rel2=rel2),
             # 'WHERE NOT (neighbor)-[:Prediction]-(neighbor2) '
             'WITH node, neighbor, rel, neighbor2, rel2 '
             'ORDER BY (rel2.layer1_att + coalesce(rel2.case_att, 0) ) DESC '
@@ -439,7 +442,6 @@ class Neo4jApp:
         
         for edge_type in edge_types:
             rel1, rel2 = edge_type
-
             res = self.session.read_transaction(
                 Neo4jApp.commit_batch_attention_query, node_type, [{'id': node_id}], Neo4jApp.k1, Neo4jApp.k2, rel1, rel2)
  
@@ -478,7 +480,6 @@ class Neo4jApp:
 
         def convert(e, i):
             return {'edgeInfo': e['edge_info'] if e['edge_info'] else e.type, 'score': e['layer1_att'] + e['layer2_att'] if i == 0 else e['layer1_att']}
-
         disease_paths, disease_tree = self.query_attention(
             disease_id, 'disease')
         drug_paths, drug_tree = self.query_attention(drug_id, 'drug')
@@ -552,7 +553,7 @@ class Neo4jApp:
         # sort paths by score
         paths.sort(key=lambda x: sum(
             [e['score'] for e in x['edges']])/len(x['edges']), reverse=True)
-
+    
         return {'attention': attention, "paths": sorted_paths}
 
     @staticmethod
@@ -642,5 +643,6 @@ class Neo4jApp:
 if __name__ == '__main__':
     db = Neo4jApp(server='txgnn_v2', user='neo4j', 
                   database='neo4j', datapath='TxGNNExplorer_v2')
-    db.init_database()
+    # db.init_database()
+    db.query_attention_pair('18905_17601_6117_6268_6428', 'DB06836')
 # %%

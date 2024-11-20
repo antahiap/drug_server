@@ -58,7 +58,6 @@ def get_attention_pair():
 
     db = get_db()
     res = db.query_attention_pair(disease_id, drug_id)
-
     return jsonify(res)
 
 
