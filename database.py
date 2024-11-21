@@ -17,7 +17,7 @@ from flask import current_app, g
 
 def get_db():
     if 'db' not in g:
-        db = Neo4jApp(server=current_app.config['GNN'], database='neo4j')
+        db = Neo4jApp(server=current_app.config['GNN'], database='txgnn1')
         db.create_session()
         g.db = db
     return g.db
@@ -55,8 +55,8 @@ class Neo4jApp:
         #   server, password, user, datapath, database)
 
         (uri, user, password, datapath, database) = (
-            #'bolt://172.29.45.124:7687', 'neo4j', 'morpheus', './data', DATABASE)
-            'bolt://localhost:7687', 'neo4j', 'explr_gds', './data', database)
+            'bolt://172.29.45.88:7687', 'neo4j', 'morpheus', './data', database)
+            #'bolt://localhost:7687', 'neo4j', 'explr_gds', './data', database)
         self.data_path = datapath
         self.database = database
 
@@ -285,6 +285,9 @@ class Neo4jApp:
 
     def query_predicted_drugs(self, disease_id, query_n):
 
+        if not self.session:
+            self.create_session()
+
         def commit_pred_drugs_query(tx, disease_id):
             # query = (
             #     'MATCH (:disease { id: $id })-[edge:Prediction]->(node:drug)'
@@ -295,7 +298,6 @@ class Neo4jApp:
                 'RETURN node, node.predictions ORDER BY node.predictions'
             )
             results = tx.run(query, id=disease_id)
-
             predicted_drugs = json.loads(results.data()[0]['node.predictions'])[:query_n]
             return predicted_drugs
 
@@ -641,8 +643,12 @@ class Neo4jApp:
 
 
 if __name__ == '__main__':
-    db = Neo4jApp(server='txgnn_v2', user='neo4j', 
-                  database='neo4j', datapath='TxGNNExplorer_v2')
+    db = Neo4jApp(server='local', user='neo4j', 
+                  database='txgnn1', datapath='TxGNNExplorer_v2')
     # db.init_database()
-    db.query_attention_pair('18905_17601_6117_6268_6428', 'DB06836')
+    # db.query_attention_pair('18905_17601_6117_6268_6428', 'DB06836')
+    db.query_predicted_drugs('5090_13498_8414_10897_33312_10943_11552_14092_12054_11960_11280_11294_11295_11298_11307_11498_12879_13089_13506', 200)
 # %%
+
+
+
