@@ -419,7 +419,67 @@ class Neo4jApp:
             for record in results
         ]
         return results
-    
+
+
+    @staticmethod
+    def commit_batch_attention_query_w_source(tx, node_type, root_nodes, k1, k2, rel1, rel2):
+
+        query = """  
+            UNWIND $nodes AS root_node
+
+            // Match the drug node and its related neighbors
+            MATCH (node: {node_type} {{ id: root_node.id }})<-[rel]-(neighbor)
+
+            // Collect neighbors and their relations, ordered by weights
+            WITH node, neighbor, rel
+            ORDER BY (rel.layer1_att + rel.layer2_att + coalesce(rel.case_att, 0)) DESC
+            WITH node, collect([neighbor, rel])[0..{k1}] AS neighbors_and_rels
+
+            // Unwind neighbors and relations
+            UNWIND neighbors_and_rels AS neighbor_and_rel
+            WITH node, neighbor_and_rel[0] AS neighbor, neighbor_and_rel[1] AS rel
+
+            // Match the disease_disease relationships for each neighbor
+            MATCH (neighbor)<-[rel2]-(neighbor2)
+
+            // Collect second-degree neighbors and their relations
+            WITH node, neighbor, rel, neighbor2, rel2
+            ORDER BY (rel2.layer1_att + coalesce(rel2.case_att, 0)) DESC
+            WITH node, neighbor, neighbor2, rel, rel2, collect([neighbor2, rel2])[0..{k2}] AS neighbors_and_rels2
+
+            // Unwind second-degree neighbors and relationships
+            UNWIND neighbors_and_rels2 AS neighbor_and_rel2
+
+            // Create a new variable that combines all the nodes
+            WITH collect(DISTINCT node) + collect(DISTINCT neighbor) + collect(DISTINCT neighbor2) AS all_nodes, node, neighbor, neighbor2, rel, rel2
+
+            // OPTIONAL MATCH for the source node and its relationship to all nodes
+            OPTIONAL MATCH (source:Source)<-[source_rel:BELONGS_TO]-(n)
+            WHERE n IN all_nodes
+
+
+            // Return the relationships in a table format (n, r, m)
+            WITH collect(DISTINCT id(rel)) + collect(DISTINCT id(rel2)) + collect(DISTINCT id(source_rel)) AS all_edge_uids
+            MATCH (n)-[r]-(m)
+            WHERE id(r) IN all_edge_uids
+            RETURN n, r, m
+
+        """.format(node_type=node_type, rel1=rel1, rel2=rel2, k1=k1, k2=k2)
+ 
+        #return(query, root_nodes)
+        results0 = tx.run(query, nodes=root_nodes)
+        # results = [
+        #     [
+        #         {'node': record['node'], 'rel': 'none'},  # root node
+        #         {'node': record['neighbor'], 'rel': record['rel']},  # hop1
+        #         {'node': record['neighbor2'], 'rel': record['rel2']}  # hop2
+        #     ]
+        #     for record in results0
+        # ]
+        results = [record.data() for record in results0]
+        return results
+        return pd.DataFrame(records)
+
     @staticmethod
     def commit_edge_type_query(tx, node_type, node_id):
         query = (
@@ -450,6 +510,27 @@ class Neo4jApp:
         tree = self.get_tree(results, node_type, node_id)
 
         return results, tree
+
+    def query_attention_w_source(self, node_id, node_type):
+        if not self.session:
+            self.create_session()
+
+        edge_types = self.session.read_transaction(
+            Neo4jApp.commit_edge_type_query, node_type, node_id)
+        
+        results = []
+        root_nodes_list = []
+        print(edge_types)
+        
+        for edge_type in edge_types:
+            rel1, rel2 = edge_type 
+            res = self.session.read_transaction(
+                Neo4jApp.commit_batch_attention_query_w_source, node_type, [{'id': node_id}], Neo4jApp.k1, Neo4jApp.k2, rel1, rel2)
+            results.append(res)
+
+       #tree = self.get_tree(results, node_type, node_id)
+
+        return results, None #, tree
 
     # called by API
     def query_attention_pair(self, disease_id, drug_id):
