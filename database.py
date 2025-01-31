@@ -328,6 +328,25 @@ class Neo4jApp:
 
         return drugs
 
+    def query_source_nodes(self, node_ids):
+        
+        if not self.session:
+            self.create_session()
+
+        def get_sources(tx, node_ids):
+            query = f"""
+                WITH {node_ids} AS id_list
+                MATCH (n)-[:BELONGS_TO]-(s:Source)
+                WHERE n.id IN id_list
+                RETURN distinct n.id as node_id, s.name as source_name, s.id as source_id
+            """
+            results = tx.run(query)
+            records = [record.data() for record in results]
+            return pd.DataFrame(records)
+
+        source_nodes_df = self.session.read_transaction(get_sources, node_ids) 
+        return source_nodes_df
+
     @staticmethod
     def get_tree(results, node_type, node_id):
         """

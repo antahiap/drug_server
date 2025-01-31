@@ -1,15 +1,18 @@
 import json
 import numpy as np
+import os
 
 import flask
 from flask import request, jsonify, Blueprint, current_app, g
 from utils import better_json_encoder
 
 from database import get_db
+from make_graph import MakeGraph
 
 api = Blueprint('api', __name__)
 
 api.json_encoder = better_json_encoder(flask.json.JSONEncoder)
+
 
 ######################
 # API Starts here
@@ -46,6 +49,25 @@ def get_attention():
 
     return jsonify(attention)
 
+@api.route('/source_graph_data', methods=['GET'])
+def get_graph():
+    '''
+    :return graph data for selected drug and diesease
+    E.g.: [base_url]/api/source_graph_data?disease=0&drug=0
+    '''
+    disease_id = request.args.get('disease', None, type=str)
+    drug_id = request.args.get('drug', None, type=str)
+
+    db = get_db()
+    # attention = {}
+    # attention['disease'] = db.query_attention(disease_id, 'disease')
+    # attention['drug'] = db.query_attention(drug_id, 'drug')
+
+    mG = MakeGraph()
+    graph_data = mG.source_graph(db, drug_id, disease_id)
+
+    return jsonify(graph_data)
+
 
 @api.route('/attention_pair', methods=['GET'])
 def get_attention_pair():
@@ -81,3 +103,4 @@ def get_drug_predictions():
     # summary = db.query_metapath_summary(top_n=top_n)
 
     return jsonify(predictions)
+
