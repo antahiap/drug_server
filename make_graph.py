@@ -71,7 +71,7 @@ class MakeGraph:
                 1, 1000)
 
         color_dict = {
-            'Source': 'blue',
+            'source': 'blue',
             'pathway': '#bab0ab',
             'drug': '#77b7b2', #'#769AB3',
             'cellular_component': 'green',
@@ -87,7 +87,8 @@ class MakeGraph:
         node_labels0 = nx.get_node_attributes(G, 'type')  
         node_colors = [color_dict.get(node_labels0.get(node, ''), 'gray') for node in G.nodes()]
         node_colors = self._node_heatmap(node_colors, 'blue', node_sizes)
-        node_labels ={ node: (G.nodes[node].get('name') if G.nodes[node].get('type') == 'Source' else '') for node in G.nodes}
+        node_labels ={ node: (G.nodes[node].get('name') if G.nodes[node].get('type') == 'source' else '') for node in G.nodes}
+        #node_labels ={ node: G.nodes[node].get('name') for node in G.nodes}
 
 
         # Json graph
@@ -102,7 +103,7 @@ class MakeGraph:
             {
                 "id": str(node),  # Ensure the ID is a string
                 "label": list(node_labels.values())[i], # attrs.get("label", node),
-                "hoover": list(node_labels0.values())[i],
+                "type": list(node_labels0.values())[i],
                 "size": node_sizes[i], #attrs.get("size", 300),
                 "color": node_colors[i], # attrs.get("color", "gray"),
                 "x": float(scaled_positions[node][0]),
@@ -111,7 +112,7 @@ class MakeGraph:
             for i, node in enumerate(G.nodes())  # Correct way to iterate over nodes with attributes
         ],
         "edges": [
-            {"source": str(u), "target": str(v), "weight": d.get("weight", 1)}
+            {"from": str(u), "to": str(v), "weight": d.get("weight", 1)}
             for u, v, d in G.edges(data=True)  # Correctly iterating over edges
         ]
         }
@@ -133,7 +134,7 @@ class MakeGraph:
         source_nodes_info = source_nodes[['source_name', 'source_id']].drop_duplicates()
 
         for i, si in source_nodes_info.iterrows():
-            G.add_node(si['source_id'], name=si['source_name'], type='Source')
+            G.add_node(si['source_id'], name=si['source_name'], type='source')
 
         for i, si in source_nodes.iterrows():
             G.add_edge(si['node_id'], si['source_id'], type='BELONS_TO', weight=1)
