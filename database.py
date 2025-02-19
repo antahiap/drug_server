@@ -500,7 +500,12 @@ class Neo4jApp:
 
 
         def convert(e, i):
-            return {'edgeInfo': e['edge_info'] if e['edge_info'] else e.type, 'score': e['layer1_att'] + e['layer2_att'] if i == 0 else e['layer1_att']}
+            e_convert = {
+                'edgeInfo': e['edge_info'] if e['edge_info'] else e.type, 
+                'score': e['layer1_att'] + e['layer2_att'] if i == 0 else e['layer1_att'],
+                'source': e['source_name']
+                }
+            return e_convert
         disease_paths, disease_tree = self.query_attention(
             disease_id, 'disease')
         drug_paths, drug_tree = self.query_attention(drug_id, 'drug')
@@ -521,7 +526,8 @@ class Neo4jApp:
                             nodes = [
                                 {
                                     'nodeId': item['node']['id'],
-                                    'nodeType': Neo4jApp.get_node_labels(item['node'])[0]
+                                    'nodeType': Neo4jApp.get_node_labels(item['node'])[0],
+                                    'nodeSource': item['node']['source_name']
                                 } for item in disease_path[:idx_a+1] +
                                 drug_path[:idx_b][::-1]]
 
@@ -662,11 +668,11 @@ class Neo4jApp:
 
 
 if __name__ == '__main__':
-    db = Neo4jApp(server='local', user='neo4j', 
+    db = Neo4jApp(server='172.29.45.88', user='neo4j', 
                   database='txgnn1', datapath='TxGNNExplorer_v2')
     # db.init_database()
-    # db.query_attention_pair('18905_17601_6117_6268_6428', 'DB06836')
-    db.query_predicted_drugs('5090_13498_8414_10897_33312_10943_11552_14092_12054_11960_11280_11294_11295_11298_11307_11498_12879_13089_13506', 200)
+    db.query_attention_pair('18905_17601_6117_6268_6428', 'DB06836')
+    # db.query_predicted_drugs('5090_13498_8414_10897_33312_10943_11552_14092_12054_11960_11280_11294_11295_11298_11307_11498_12879_13089_13506', 200)
 # %%
 
 
